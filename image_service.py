@@ -1,78 +1,56 @@
-import os
 import aiohttp
-import base64
+import urllib.parse
 
-IDEOGRAM_API_KEY = os.getenv("IDEOGRAM_API_KEY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # fallback DALL-E
+# Pollinations.ai — бесплатно, без ключей (как в RankCraft)
 
 
-async def generate_image_ideogram(prompt: str) -> bytes | None:
-    """Генерация изображения через Ideogram API"""
-    if not IDEOGRAM_API_KEY:
-        return None
+async def generate_image(prompt: str, style: str = "professional", size: str = "1280x720") -> bytes | None:
+    """Генерация изображения через Pollinations.ai — бесплатно, без регистрации"""
+    width, height = size.split("x") if "x" in size else ("1280", "720")
 
-    url = "https://api.ideogram.ai/generate"
-    headers = {
-        "Api-Key": IDEOGRAM_API_KEY,
-        "Content-Type": "application/json"
+    style_hints = {
+        "professional": "professional photography, sharp, 4k, high quality",
+        "flat":         "flat illustration, vector art, clean design",
+        "3d":           "3D render, Cinema4D, octane render, realistic",
+        "dark":         "dark premium, dramatic lighting, cinematic",
+        "minimal":      "minimalist, white background, clean, modern"
     }
-    payload = {
-        "image_request": {
-            "prompt": prompt,
-            "aspect_ratio": "ASPECT_16_9",
-            "model": "V_2",
-            "magic_prompt_option": "AUTO"
-        }
-    }
+    style_suffix = style_hints.get(style, style_hints["professional"])
+    full_prompt = f"{prompt}, {style_suffix}"
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, headers=headers, json=payload) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                image_url = data["data"][0]["url"]
-                # Скачиваем картинку
-                async with session.get(image_url) as img_resp:
-                    return await img_resp.read()
+    encoded = urllib.parse.quote(full_prompt)
+    url = f"https://image.pollinations.ai/prompt/{encoded}?width={width}&height={height}&nologo=true"
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=60)) as resp:
+                if resp.status == 200:
+                    return await resp.read()
+    except Exception as e:
+        print(f"Pollinations error: {e}")
     return None
 
 
-async def generate_image_dalle(prompt: str) -> bytes | None:
-    """Fallback: генерация через DALL-E 3"""
-    if not OPENAI_API_KEY:
-        return None
-
-    url = "https://api.openai.com/v1/images/generations"
-    headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-        "Content-Type": "application/json"
+async def generate_og_image(title: str, style: str = "business") -> bytes | None:
+    """OG изображение для статьи / соцсетей"""
+    style_map = {
+        "business": "corporate, professional, office, business",
+        "tech":     "futuristic, technology, data, neon, modern",
+        "minimal":  "minimalist, white, clean, typography",
+        "vibrant":  "vibrant colors, creative, eye-catching",
+        "dark":     "dark background, premium, luxury"
     }
-    payload = {
-        "model": "dall-e-3",
-        "prompt": prompt,
-        "n": 1,
-        "size": "1792x1024",
-        "response_format": "url"
+    prompt = f"{title}, {style_map.get(style, style_map['business'])}, blog header image"
+    return await generate_image(prompt, size="1280x720")
+
+
+async def generate_article_image(topic: str, style: str = "photo") -> bytes | None:
+    """Изображение для SEO статьи"""
+    style_map = {
+        "photo":      "photorealistic, stock photo quality",
+        "flat":       "flat illustration, infographic style",
+        "3d":         "3D render, isometric",
+        "watercolor": "watercolor painting, artistic"
     }
-
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, headers=headers, json=payload) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                image_url = data["data"][0]["url"]
-                async with session.get(image_url) as img_resp:
-                    return await img_resp.read()
-    return None
-
-
-async def generate_image(prompt: str, style_hint: str = "professional blog") -> bytes | None:
-    """Главная функция генерации — сначала Ideogram, потом DALL-E"""
-    full_prompt = f"{prompt}, {style_hint}, high quality, sharp, 4k"
-
-    # Пробуем Ideogram
-    img = await generate_image_ideogram(full_prompt)
-    if img:
-        return img
-
-    # Fallback на DALL-E
-    img = await generate_image_dalle(full_prompt)
-    return img
+    prompt = f"{topic}, {style_map.get(style, style_map['photo'])}, article hero image"
+    return await generate_image(prompt, size="1280x720")
