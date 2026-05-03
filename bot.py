@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 async def main():
-    bot = Bot(token=os.getenv("8680832347:AAH9ntkV68ElWpZVgCwGOIqKyGN1iXoAlU8"))
+    bot = Bot(token=os.getenv("BOT_TOKEN")
     dp = Dispatcher(storage=MemoryStorage())
 
     dp.include_router(start.router)
