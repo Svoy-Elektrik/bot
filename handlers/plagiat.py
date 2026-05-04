@@ -35,3 +35,38 @@ async def check_text(message: Message, state: FSMContext):
             emoji = "✅" if unique >= 80 else ("⚠️" if unique >= 60 else "❌")
             text = (
                 f"{emoji} *Результат проверки:*\n\n"
+                f"📊 Уникальность: *{unique:.1f}%*\n"
+                f"🔗 Отчёт: {result.get('report_url', 'N/A')}\n\n"
+            )
+            if unique < 60:
+                text += "💡 Рекомендую сделать рерайт (/seo → Рерайт текста)"
+            elif unique < 80:
+                text += "💡 Можно улучшить уникальность через рерайт"
+            else:
+                text += "🎉 Отличная уникальность!"
+            await status_msg.edit_text(text, parse_mode="Markdown")
+    except Exception as e:
+        await status_msg.edit_text(f"❌ Ошибка проверки: {e}")
+    await state.clear()
+
+@router.callback_query(F.data == "check_last_text")
+async def check_last(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    article = data.get("last_article")
+    if not article:
+        await callback.message.answer("❌ Нет текста для проверки. Сначала сгенерируй статью.")
+        await callback.answer()
+        return
+    await callback.message.answer("⏳ Проверяю уникальность статьи...")
+    result = await check_plagiarism(article)
+    if result.get("error"):
+        await callback.message.answer(f"❌ {result['error']}")
+    else:
+        unique = result["unique"]
+        emoji = "✅" if unique >= 80 else ("⚠️" if unique >= 60 else "❌")
+        await callback.message.answer(
+            f"{emoji} Уникальность статьи: *{unique:.1f}%*\n"
+            f"🔗 {result.get('report_url', '')}",
+            parse_mode="Markdown"
+        )
+    await callback.answer()
