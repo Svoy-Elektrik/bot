@@ -13,8 +13,8 @@ async def handle_text(message: Message):
     await message.answer(result)
 
     await message.answer(
-        "Куда отправить?
-1 - Telegram
-2 - WordPress
-3 - Скачать файл"
+        "Куда отправить?\n"
+        "1 - Telegram\n"
+        "2 - WordPress\n"
+        "3 - Скачать файл"
     )
