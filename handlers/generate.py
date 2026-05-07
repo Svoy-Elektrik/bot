@@ -1,20 +1,38 @@
+import logging
+
 from aiogram import Router, F
+from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
-from services.claude import generate_text
+
+from states import ArticleStates
+from keyboards import output_kb
+from services.claude import generate_article
+from utils import split_for_telegram
 
 router = Router()
+log = logging.getLogger(__name__)
 
-@router.message(F.text)
-async def handle_text(message: Message):
-    user_text = message.text
 
-    result = generate_text(f"Сгенерируй текст по задаче: {user_text}", 1500)
+@router.message(ArticleStates.waiting_for_topic, F.text)
+async def on_topic(message: Message, state: FSMContext) -> None:
+    data = await state.get_data()
+    lang = data.get("lang", "ru")
+    length = data.get("length", 3000)
+    topic = message.text.strip()
 
-    await message.answer(result)
+    await message.answer("Генерирую статью…")
 
-    await message.answer(
-        "Куда отправить?\n"
-        "1 - Telegram\n"
-        "2 - WordPress\n"
-        "3 - Скачать файл"
-    )
+    try:
+        article = generate_article(topic=topic, length=length, lang=lang)
+    except Exception as e:
+        log.exception("Generation failed")
+        await message.answer(f"Ошибка генерации: {e}")
+        return
+
+    await state.update_data(article=article, topic=topic)
+
+    for chunk in split_for_telegram(article):
+        await message.answer(chunk)
+
+    await message.answer("Куда выложить?", reply_markup=output_kb())
+    await state.set_state(ArticleStates.choosing_output)
