@@ -35,7 +35,13 @@ async def main() -> None:
     dp.include_router(output_router)
     dp.include_router(voice_router)
 
-    log.info("Bot starting…")
+    tg_channel = os.getenv("TG_CHANNEL_ID")
+    wp_url = os.getenv("WP_URL")
+    log.info(
+        "Bot starting… TG_CHANNEL_ID=%s  WP_URL=%s",
+        repr(tg_channel) if tg_channel else "NOT SET",
+        repr(wp_url) if wp_url else "NOT SET",
+    )
     await dp.start_polling(bot)
 
 
